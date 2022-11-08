@@ -12,4 +12,3 @@ CUDA_VISIBLE_DEVICES=0 python point_extraction.py \
     --alpha=0.7 \
     --checkpoint=checkpoints/PAM/ckpt_15.pth \
     --save_dir Peak_points
-    

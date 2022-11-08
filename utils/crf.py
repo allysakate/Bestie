@@ -2,6 +2,7 @@ import numpy as np
 import pydensecrf.densecrf as dcrf
 from pydensecrf.utils import unary_from_labels, unary_from_softmax
 
+
 def crf_inference_label(img, labels, t=10, n_labels=21, gt_prob=0.7):
 
     h, w = img.shape[:2]
@@ -12,7 +13,9 @@ def crf_inference_label(img, labels, t=10, n_labels=21, gt_prob=0.7):
 
     d.setUnaryEnergy(unary)
     d.addPairwiseGaussian(sxy=3, compat=3)
-    d.addPairwiseBilateral(sxy=50, srgb=5, rgbim=np.ascontiguousarray(np.copy(img)), compat=10)
+    d.addPairwiseBilateral(
+        sxy=50, srgb=5, rgbim=np.ascontiguousarray(np.copy(img)), compat=10
+    )
 
     q = d.inference(t)
 
@@ -47,5 +50,5 @@ class DenseCRF(object):
         Q = np.array(Q).reshape((C, H, W))
 
         output = np.argmax(Q, axis=0).astype(np.uint8)
-        
+
         return output

@@ -6,12 +6,14 @@ import numpy as np
 from torchvision.transforms import functional as F
 import torch
 
+
 class Compose(object):
     """
     Composes a sequence of transforms.
     Arguments:
         transforms: A list of transforms.
     """
+
     def __init__(self, transforms):
         self.transforms = transforms
 
@@ -33,17 +35,18 @@ class ToTensor(object):
     """
     Converts image to torch Tensor.
     """
+
     def __call__(self, image, seg_map, peak):
-        
+
         image = F.to_tensor(image)
-        
+
         seg_map = np.array(seg_map, dtype=np.uint8, copy=True)
 
         seg_map = torch.from_numpy(seg_map)
-        
+
         return image, seg_map, peak
-        
-        
+
+
 class Normalize(object):
     """Normalize an tensor image with mean and standard deviation.
     Given mean: ``(M1,...,Mn)`` and std: ``(S1,..,Sn)`` for ``n`` channels, this transform
@@ -68,9 +71,9 @@ class Normalize(object):
             Tensor: Normalized Tensor image.
         """
         image = F.normalize(image, self.mean, self.std)
-        
-        peak = [ [int(x), int(y), cls, conf] for x, y, cls, conf in peak]
-        
+
+        peak = [[int(x), int(y), cls, conf] for x, y, cls, conf in peak]
+
         return image, seg_map, peak
 
 
@@ -82,6 +85,7 @@ class RandomScale(object):
         max_scale: Maximum scale value.
         scale_step_size: The step size from minimum to maximum value.
     """
+
     def __init__(self, min_scale, max_scale, scale_step_size):
         self.min_scale = min_scale
         self.max_scale = max_scale
@@ -100,7 +104,7 @@ class RandomScale(object):
             ValueError: min_scale_factor has unexpected value.
         """
         if min_scale_factor < 0 or min_scale_factor > max_scale_factor:
-            raise ValueError('Unexpected value of min_scale_factor.')
+            raise ValueError("Unexpected value of min_scale_factor.")
 
         if min_scale_factor == max_scale_factor:
             return min_scale_factor
@@ -115,20 +119,34 @@ class RandomScale(object):
         np.random.shuffle(scale_factors)
         return scale_factors[0]
 
-    #def __call__(self, image, label):
+    # def __call__(self, image, label):
     def __call__(self, image, seg_map, peak):
-        f_scale = self.get_random_scale(self.min_scale, self.max_scale, self.scale_step_size)
+        f_scale = self.get_random_scale(
+            self.min_scale, self.max_scale, self.scale_step_size
+        )
         # TODO: cv2 uses align_corner=False
         # TODO: use fvcore (https://github.com/facebookresearch/fvcore/blob/master/fvcore/transforms/transform.py#L377)
         image_dtype = image.dtype
         seg_map_dtype = seg_map.dtype
-        
-        image = cv2.resize(image.astype(np.float), None, fx=f_scale, fy=f_scale, interpolation=cv2.INTER_LINEAR)
-        
-        seg_map = cv2.resize(seg_map.astype(np.float), None, fx=f_scale, fy=f_scale, interpolation=cv2.INTER_NEAREST)
-        
-        peak = [ [p[0]*f_scale, p[1]*f_scale, p[2], p[3]] for p in peak ]
-        
+
+        image = cv2.resize(
+            image.astype(np.float),
+            None,
+            fx=f_scale,
+            fy=f_scale,
+            interpolation=cv2.INTER_LINEAR,
+        )
+
+        seg_map = cv2.resize(
+            seg_map.astype(np.float),
+            None,
+            fx=f_scale,
+            fy=f_scale,
+            interpolation=cv2.INTER_NEAREST,
+        )
+
+        peak = [[p[0] * f_scale, p[1] * f_scale, p[2], p[3]] for p in peak]
+
         return image.astype(image_dtype), seg_map.astype(seg_map_dtype), peak
 
 
@@ -143,6 +161,7 @@ class RandomCrop(object):
         random_pad: Bool, when crop size larger than image size, whether to randomly pad four boundaries,
             or put image to top-left and only pad bottom and right boundaries.
     """
+
     def __init__(self, crop_h, crop_w, pad_value, ignore_label, random_pad):
         self.crop_h = crop_h
         self.crop_w = crop_w
@@ -167,32 +186,56 @@ class RandomCrop(object):
                 pad_right = pad_w - pad_left
             else:
                 pad_top, pad_bottom, pad_left, pad_right = 0, pad_h, 0, pad_w
-                
-            img_pad = cv2.copyMakeBorder(image, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT,
-                                         value=self.pad_value)
-            seg_map_pad = cv2.copyMakeBorder(seg_map, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT,
-                                           value=self.ignore_label)
-            
-            peak = [ [px+pad_left, py+pad_top, cls, conf] for px, py, cls, conf in peak ]
-            
+
+            img_pad = cv2.copyMakeBorder(
+                image,
+                pad_top,
+                pad_bottom,
+                pad_left,
+                pad_right,
+                cv2.BORDER_CONSTANT,
+                value=self.pad_value,
+            )
+            seg_map_pad = cv2.copyMakeBorder(
+                seg_map,
+                pad_top,
+                pad_bottom,
+                pad_left,
+                pad_right,
+                cv2.BORDER_CONSTANT,
+                value=self.ignore_label,
+            )
+
+            peak = [
+                [px + pad_left, py + pad_top, cls, conf] for px, py, cls, conf in peak
+            ]
+
         else:
             img_pad, seg_map_pad = image, seg_map
-            
+
         img_h, img_w = img_pad.shape[0], img_pad.shape[1]
         h_off = random.randint(0, img_h - self.crop_h)
         w_off = random.randint(0, img_w - self.crop_w)
-        
-        image = np.asarray(img_pad[h_off:h_off + self.crop_h, w_off:w_off + self.crop_w], np.float32)
-        seg_map = np.asarray(seg_map_pad[h_off:h_off + self.crop_h, w_off:w_off + self.crop_w], np.float32)
-        
+
+        image = np.asarray(
+            img_pad[h_off : h_off + self.crop_h, w_off : w_off + self.crop_w],
+            np.float32,
+        )
+        seg_map = np.asarray(
+            seg_map_pad[h_off : h_off + self.crop_h, w_off : w_off + self.crop_w],
+            np.float32,
+        )
+
         peak_crop = []
         for px, py, cls, conf in peak:
-            if (h_off <= py < h_off + self.crop_h) and (w_off <= px < w_off + self.crop_w):
-                px_crop, py_crop = px-w_off, py-h_off
-                
-                #if (0 <= px_crop < self.crop_w) and (0 <= py_crop < self.crop_h):
-                peak_crop.append( [px_crop, py_crop, cls, conf]  )
-        
+            if (h_off <= py < h_off + self.crop_h) and (
+                w_off <= px < w_off + self.crop_w
+            ):
+                px_crop, py_crop = px - w_off, py - h_off
+
+                # if (0 <= px_crop < self.crop_w) and (0 <= py_crop < self.crop_h):
+                peak_crop.append([px_crop, py_crop, cls, conf])
+
         return image.astype(image_dtype), seg_map.astype(seg_map_dtype), peak_crop
 
 
@@ -204,14 +247,14 @@ class RandomHorizontalFlip(object):
         if random.random() < 0.5:
             image = torch.flip(image, [2])
             seg_map = torch.flip(seg_map, [1])
-            
+
             _, H, W = image.shape
-            
-            peak = [ [W-p[0]-1, p[1], p[2], p[3]] for p in peak ]
-            
+
+            peak = [[W - p[0] - 1, p[1], p[2], p[3]] for p in peak]
+
         return image, seg_map, peak
 
-    
+
 class Resize(object):
     """
     Applies random scale augmentation.
@@ -226,8 +269,15 @@ class Resize(object):
             keeping the original aspect ratio.
         align_corners: If True, exactly align all 4 corners of input and output.
     """
-    def __init__(self, min_resize_value=None, max_resize_value=None, resize_factor=None,
-                 keep_aspect_ratio=True, align_corners=False):
+
+    def __init__(
+        self,
+        min_resize_value=None,
+        max_resize_value=None,
+        resize_factor=None,
+        keep_aspect_ratio=True,
+        align_corners=False,
+    ):
         if min_resize_value is not None and min_resize_value < 0:
             min_resize_value = None
         if max_resize_value is not None and max_resize_value < 0:
@@ -241,17 +291,20 @@ class Resize(object):
         self.align_corners = align_corners
 
         if self.align_corners:
-            warnings.warn('`align_corners = True` is not supported by opencv.')
+            warnings.warn("`align_corners = True` is not supported by opencv.")
 
         if self.max_resize_value is not None:
             # Modify the max_size to be a multiple of factor plus 1 and make sure the max dimension after resizing
             # is no larger than max_size.
             if self.resize_factor is not None:
-                self.max_resize_value = (self.max_resize_value - (self.max_resize_value - 1) % self.resize_factor)
+                self.max_resize_value = (
+                    self.max_resize_value
+                    - (self.max_resize_value - 1) % self.resize_factor
+                )
 
     def __call__(self, image, seg_map, peak):
         if self.min_resize_value is None:
-            return image, label
+            return image  # , label # noqa F821
         [orig_height, orig_width, _] = image.shape
         orig_min_size = np.minimum(orig_height, orig_width)
 
@@ -275,7 +328,9 @@ class Resize(object):
 
         # Ensure that both output sides are multiples of factor plus one.
         if self.resize_factor is not None:
-            new_size += (self.resize_factor - (new_size - 1) % self.resize_factor) % self.resize_factor
+            new_size += (
+                self.resize_factor - (new_size - 1) % self.resize_factor
+            ) % self.resize_factor
             # If new_size exceeds largest allowed size
             new_size[new_size > self.max_resize_value] -= self.resize_factor
 
@@ -288,16 +343,31 @@ class Resize(object):
         # TODO: use fvcore (https://github.com/facebookresearch/fvcore/blob/master/fvcore/transforms/transform.py#L377)
         image_dtype = image.dtype
         seg_map_dtype = seg_map.dtype
-        
-        image = cv2.resize(image.astype(np.float), (new_size[1], new_size[0]), interpolation=cv2.INTER_LINEAR)
-        seg_map = cv2.resize(seg_map.astype(np.float), (new_size[1], new_size[0]), interpolation=cv2.INTER_NEAREST)
-        
-        peak = [ [int(p[0]/orig_width*new_size[1]), int(p[1]/orig_height*new_size[0]), p[2], p[3]] for p in peak ]
-        
+
+        image = cv2.resize(
+            image.astype(np.float),
+            (new_size[1], new_size[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        seg_map = cv2.resize(
+            seg_map.astype(np.float),
+            (new_size[1], new_size[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+
+        peak = [
+            [
+                int(p[0] / orig_width * new_size[1]),
+                int(p[1] / orig_height * new_size[0]),
+                p[2],
+                p[3],
+            ]
+            for p in peak
+        ]
+
         return image.astype(image_dtype), seg_map.astype(seg_map_dtype), peak
 
 
-    
 class RandomContrast(object):
     def __init__(self, lower=0.5, upper=1.5):
         self.lower = lower
@@ -310,11 +380,12 @@ class RandomContrast(object):
         if random.random() < 0.5:
             alpha = random.uniform(self.lower, self.upper)
             image *= alpha
-            image[image>255] = 255
-            image[image<0] = 0
-            
+            image[image > 255] = 255
+            image[image < 0] = 0
+
         return image, seg_map, peak
-    
+
+
 class RandomBrightness(object):
     def __init__(self, delta=16):
         assert delta >= 0.0
@@ -325,10 +396,11 @@ class RandomBrightness(object):
         if random.random() < 0.5:
             delta = random.uniform(-self.delta, self.delta)
             image += delta
-            image[image>255] = 255
-            image[image<0] = 0
-            
+            image[image > 255] = 255
+            image[image < 0] = 0
+
         return image, seg_map, peak
+
 
 class RandomHue(object):
     def __init__(self, delta=36.0):
@@ -343,11 +415,18 @@ class RandomHue(object):
         return image, seg_map, peak
 
 
+class SwapChannels(object):
+    def __init__(self, swaps):
+        self.swaps = swaps
+
+    def __call__(self, img):
+        img = img[:, :, self.swaps]
+        return img
+
+
 class RandomLightingNoise(object):
     def __init__(self):
-        self.perms = ((0, 1, 2), (0, 2, 1),
-                      (1, 0, 2), (1, 2, 0),
-                      (2, 0, 1), (2, 1, 0))
+        self.perms = ((0, 1, 2), (0, 2, 1), (1, 0, 2), (1, 2, 0), (2, 0, 1), (2, 1, 0))
 
     def __call__(self, image, seg_map, peak):
         if random.random() < 0.5:
@@ -358,50 +437,51 @@ class RandomLightingNoise(object):
 
 
 class ConvertColor(object):
-    def __init__(self, current='BGR', transform='HSV'):
+    def __init__(self, current="BGR", transform="HSV"):
         self.transform = transform
         self.current = current
 
     def __call__(self, image, seg_map, peak):
-        if self.current == 'RGB' and self.transform == 'HSV':
+        if self.current == "RGB" and self.transform == "HSV":
             image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-        elif self.current == 'HSV' and self.transform == 'RGB':
+        elif self.current == "HSV" and self.transform == "RGB":
             image = cv2.cvtColor(image, cv2.COLOR_HSV2RGB)
         else:
             raise NotImplementedError
         return image, seg_map, peak
 
+
 class PhotometricDistort(object):
     def __init__(self):
         self.pd = [
             RandomContrast(),
-            ConvertColor(current='RGB', transform='HSV'),
+            ConvertColor(current="RGB", transform="HSV"),
             RandomHue(),
-            ConvertColor(current='HSV', transform='RGB'),
-            RandomContrast()
+            ConvertColor(current="HSV", transform="RGB"),
+            RandomContrast(),
         ]
         self.rand_brightness = RandomBrightness()
         self.rand_light_noise = RandomLightingNoise()
 
     def __call__(self, image, seg_map, peak):
-        #m = image.copy()
+        # m = image.copy()
         im = image.copy().astype(np.float32)
-        
+
         im, seg_map, peak = self.rand_brightness(im, seg_map, peak)
-        
+
         if random.random() < 0.5:
             distort = Compose(self.pd[:-1])
         else:
             distort = Compose(self.pd[1:])
-            
+
         im, seg_map, peak = distort(im, seg_map, peak)
         # im, boxes, labels = self.rand_light_noise(im, boxes, labels)
-        
+
         im = np.clip(im, 0, 255).astype(np.uint8)
-        
+
         return im, seg_map, peak
 
-    
+
 class Keepsize(object):
     """Resize the input PIL Image to the given size.
 
@@ -417,7 +497,7 @@ class Keepsize(object):
 
     def __init__(self, shape=None):
         self.shape = shape
-        
+
         pass
 
     def __call__(self, img, seg_map, peak):
@@ -436,10 +516,13 @@ class Keepsize(object):
         else:
             new_h = self.shape[1]
             new_w = self.shape[0]
-        
+
         img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
         seg_map = cv2.resize(seg_map, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-        
-        peak = [ [int(p[0]/ori_w*new_w), int(p[1]/ori_h*new_h), p[2], p[3]] for p in peak ]
-        
+
+        peak = [
+            [int(p[0] / ori_w * new_w), int(p[1] / ori_h * new_h), p[2], p[3]]
+            for p in peak
+        ]
+
         return img, seg_map, peak

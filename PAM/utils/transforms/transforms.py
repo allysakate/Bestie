@@ -6,7 +6,8 @@ from __future__ import division
 import torch
 import math
 import random
-from PIL import Image, ImageOps, ImageEnhance
+from PIL import Image  # , ImageOps, ImageEnhance
+
 try:
     import accimage
 except ImportError:
@@ -19,10 +20,29 @@ import warnings
 
 from . import functional as F
 
-__all__ = ["Compose", "ToTensor", "ToPILImage", "Normalize", "Resize", "Scale", "CenterCrop", "Pad",
-           "Lambda", "RandomCrop", "RandomHorizontalFlip", "RandomVerticalFlip", "RandomResizedCrop",
-           "RandomSizedCrop", "FiveCrop", "TenCrop", "LinearTransformation", "ColorJitter", "RandomRotation",
-           "Grayscale", "RandomGrayscale"]
+__all__ = [
+    "Compose",
+    "ToTensor",
+    "ToPILImage",
+    "Normalize",
+    "Resize",
+    "Scale",
+    "CenterCrop",
+    "Pad",
+    "Lambda",
+    "RandomCrop",
+    "RandomHorizontalFlip",
+    "RandomVerticalFlip",
+    "RandomResizedCrop",
+    "RandomSizedCrop",
+    "FiveCrop",
+    "TenCrop",
+    "LinearTransformation",
+    "ColorJitter",
+    "RandomRotation",
+    "Grayscale",
+    "RandomGrayscale",
+]
 
 
 class Compose(object):
@@ -80,14 +100,13 @@ class From_Numpy(object):
         Returns:
             Tensor: Converted image.
         """
-        
+
         pic = np.array(pic).astype(np.int32)
         pic = torch.from_numpy(pic)
-        
+
         return pic
 
-    
-    
+
 class ToPILImage(object):
     """Convert a tensor or an ndarray to PIL Image.
 
@@ -104,6 +123,7 @@ class ToPILImage(object):
 
     .. _PIL.Image mode: http://pillow.readthedocs.io/en/3.4.x/handbook/concepts.html#modes
     """
+
     def __init__(self, mode=None):
         self.mode = mode
 
@@ -144,6 +164,7 @@ class Normalize(object):
         """
         return F.normalize(tensor, self.mean, self.std)
 
+
 class Resize(object):
     """Resize the input PIL Image to the given size.
 
@@ -158,7 +179,9 @@ class Resize(object):
     """
 
     def __init__(self, size, interpolation=Image.BILINEAR):
-        assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
+        assert isinstance(size, int) or (
+            isinstance(size, collections.Iterable) and len(size) == 2
+        )
         self.size = size
         self.interpolation = interpolation
 
@@ -170,7 +193,7 @@ class Resize(object):
         Returns:
             PIL Image: Rescaled image.
         """
-        #return F.resize(img, self.size, self.interpolation)
+        # return F.resize(img, self.size, self.interpolation)
         return F.resize(img, (self.size, self.size), self.interpolation)
 
 
@@ -178,9 +201,12 @@ class Scale(Resize):
     """
     Note: This transform is deprecated in favor of Resize.
     """
+
     def __init__(self, *args, **kwargs):
-        warnings.warn("The use of the transforms.Scale transform is deprecated, " +
-                      "please use transforms.Resize instead.")
+        warnings.warn(
+            "The use of the transforms.Scale transform is deprecated, "
+            + "please use transforms.Resize instead."
+        )
         super(Scale, self).__init__(*args, **kwargs)
 
 
@@ -227,8 +253,10 @@ class Pad(object):
         assert isinstance(padding, (numbers.Number, tuple))
         assert isinstance(fill, (numbers.Number, str, tuple))
         if isinstance(padding, collections.Sequence) and len(padding) not in [2, 4]:
-            raise ValueError("Padding must be an int or a 2, or 4 element tuple, not a " +
-                             "{} element tuple".format(len(padding)))
+            raise ValueError(
+                "Padding must be an int or a 2, or 4 element tuple, not a "
+                + "{} element tuple".format(len(padding))
+            )
 
         self.padding = padding
         self.fill = fill
@@ -362,7 +390,13 @@ class RandomResizedCrop(object):
         interpolation: Default: PIL.Image.BILINEAR
     """
 
-    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), interpolation=Image.BILINEAR):
+    def __init__(
+        self,
+        size,
+        scale=(0.08, 1.0),
+        ratio=(3.0 / 4.0, 4.0 / 3.0),
+        interpolation=Image.BILINEAR,
+    ):
         self.size = (size, size)
         self.interpolation = interpolation
         self.scale = scale
@@ -419,9 +453,12 @@ class RandomSizedCrop(RandomResizedCrop):
     """
     Note: This transform is deprecated in favor of RandomResizedCrop.
     """
+
     def __init__(self, *args, **kwargs):
-        warnings.warn("The use of the transforms.RandomSizedCrop transform is deprecated, " +
-                      "please use transforms.RandomResizedCrop instead.")
+        warnings.warn(
+            "The use of the transforms.RandomSizedCrop transform is deprecated, "
+            + "please use transforms.RandomResizedCrop instead."
+        )
         super(RandomSizedCrop, self).__init__(*args, **kwargs)
 
 
@@ -520,8 +557,10 @@ class LinearTransformation(object):
 
     def __init__(self, transformation_matrix):
         if transformation_matrix.size(0) != transformation_matrix.size(1):
-            raise ValueError("transformation_matrix should be square. Got " +
-                             "[{} x {}] rectangular matrix.".format(*transformation_matrix.size()))
+            raise ValueError(
+                "transformation_matrix should be square. Got "
+                + "[{} x {}] rectangular matrix.".format(*transformation_matrix.size())
+            )
         self.transformation_matrix = transformation_matrix
 
     def __call__(self, tensor):
@@ -532,10 +571,14 @@ class LinearTransformation(object):
         Returns:
             Tensor: Transformed image.
         """
-        if tensor.size(0) * tensor.size(1) * tensor.size(2) != self.transformation_matrix.size(0):
-            raise ValueError("tensor and transformation matrix have incompatible shape." +
-                             "[{} x {} x {}] != ".format(*tensor.size()) +
-                             "{}".format(self.transformation_matrix.size(0)))
+        if tensor.size(0) * tensor.size(1) * tensor.size(
+            2
+        ) != self.transformation_matrix.size(0):
+            raise ValueError(
+                "tensor and transformation matrix have incompatible shape."
+                + "[{} x {} x {}] != ".format(*tensor.size())
+                + "{}".format(self.transformation_matrix.size(0))
+            )
         flat_tensor = tensor.view(1, -1)
         transformed_tensor = torch.mm(flat_tensor, self.transformation_matrix)
         tensor = transformed_tensor.view(tensor.size())
@@ -555,6 +598,7 @@ class ColorJitter(object):
         hue(float): How much to jitter hue. hue_factor is chosen uniformly from
             [-hue, hue]. Should be >=0 and <= 0.5.
     """
+
     def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
         self.brightness = brightness
         self.contrast = contrast
@@ -573,16 +617,26 @@ class ColorJitter(object):
         """
         transforms = []
         if brightness > 0:
-            brightness_factor = np.random.uniform(max(0, 1 - brightness), 1 + brightness)
-            transforms.append(Lambda(lambda img: F.adjust_brightness(img, brightness_factor)))
+            brightness_factor = np.random.uniform(
+                max(0, 1 - brightness), 1 + brightness
+            )
+            transforms.append(
+                Lambda(lambda img: F.adjust_brightness(img, brightness_factor))
+            )
 
         if contrast > 0:
             contrast_factor = np.random.uniform(max(0, 1 - contrast), 1 + contrast)
-            transforms.append(Lambda(lambda img: F.adjust_contrast(img, contrast_factor)))
+            transforms.append(
+                Lambda(lambda img: F.adjust_contrast(img, contrast_factor))
+            )
 
         if saturation > 0:
-            saturation_factor = np.random.uniform(max(0, 1 - saturation), 1 + saturation)
-            transforms.append(Lambda(lambda img: F.adjust_saturation(img, saturation_factor)))
+            saturation_factor = np.random.uniform(
+                max(0, 1 - saturation), 1 + saturation
+            )
+            transforms.append(
+                Lambda(lambda img: F.adjust_saturation(img, saturation_factor))
+            )
 
         if hue > 0:
             hue_factor = np.random.uniform(-hue, hue)
@@ -601,8 +655,9 @@ class ColorJitter(object):
         Returns:
             PIL Image: Color jittered image.
         """
-        transform = self.get_params(self.brightness, self.contrast,
-                                    self.saturation, self.hue)
+        transform = self.get_params(
+            self.brightness, self.contrast, self.saturation, self.hue
+        )
         return transform(img)
 
 
@@ -716,7 +771,7 @@ class RandomGrayscale(object):
         Returns:
             PIL Image: Randomly grayscaled image.
         """
-        num_output_channels = 1 if img.mode == 'L' else 3
+        num_output_channels = 1 if img.mode == "L" else 3
         if random.random() < self.p:
             return F.to_grayscale(img, num_output_channels=num_output_channels)
         return img

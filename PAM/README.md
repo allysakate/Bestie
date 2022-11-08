@@ -2,9 +2,9 @@
 
 ## Abtract
 
-CAMs have a limitation in obtaining the accurate instance cue because several instance cues might be extracted in a single instance due to noisy activation regions as illustrated in the bellow Figure. 
+CAMs have a limitation in obtaining the accurate instance cue because several instance cues might be extracted in a single instance due to noisy activation regions as illustrated in the bellow Figure.
 It disturbs the generation of pseudo instance labels.
-To address this limitation, we propose a peak attention module (PAM) to extract one appropriate instance cue per instance. 
+To address this limitation, we propose a peak attention module (PAM) to extract one appropriate instance cue per instance.
 PAM aims to strengthen the attention on peak regions, while weakening the attention on noisy activation regions.
 
 <img src = "https://github.com/clovaai/BESTIE/blob/main/figures/PAM_architecture.png" width="50%" height="50%">

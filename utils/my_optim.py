@@ -6,7 +6,6 @@ from typing import List
 
 
 class PolyOptimizer(optim.SGD):
-
     def __init__(self, params, lr, weight_decay, max_step, momentum=0.9):
         super().__init__(params, lr, weight_decay)
         self.param_groups = params
@@ -14,8 +13,7 @@ class PolyOptimizer(optim.SGD):
         self.max_step = max_step
         self.momentum = momentum
 
-        self.__initial_lr = [group['lr'] for group in self.param_groups]
-
+        self.__initial_lr = [group["lr"] for group in self.param_groups]
 
     def step(self, closure=None):
 
@@ -23,23 +21,26 @@ class PolyOptimizer(optim.SGD):
             lr_mult = (1 - self.global_step / self.max_step) ** self.momentum
 
             for i in range(len(self.param_groups)):
-                self.param_groups[i]['lr'] = self.__initial_lr[i] * lr_mult
+                self.param_groups[i]["lr"] = self.__initial_lr[i] * lr_mult
         super().step(closure)
 
         self.global_step += 1
 
 
-def lr_poly(base_lr, iter,max_iter,power=0.9):
-    return base_lr*((1-float(iter)/max_iter)**(power))
+def lr_poly(base_lr, iter, max_iter, power=0.9):
+    return base_lr * ((1 - float(iter) / max_iter) ** (power))
+
 
 def reduce_lr_poly(args, optimizer, global_iter, max_iter):
     base_lr = args.lr
     for g in optimizer.param_groups:
-        g['lr'] = lr_poly(base_lr=base_lr, iter=global_iter, max_iter=max_iter, power=0.9)
+        g["lr"] = lr_poly(
+            base_lr=base_lr, iter=global_iter, max_iter=max_iter, power=0.9
+        )
 
 
 def reduce_lr(args, optimizer, epoch, factor=0.1):
-    values = args.decay_points.strip().split(',')
+    values = args.decay_points.strip().split(",")
     try:
         change_points = map(lambda x: int(x.strip()), values)
     except ValueError:
@@ -47,12 +48,11 @@ def reduce_lr(args, optimizer, epoch, factor=0.1):
 
     if change_points is not None and epoch in change_points:
         for g in optimizer.param_groups:
-            g['lr'] = g['lr']*factor
-            print("Reduce Learning Rate : ", epoch, g['lr'])
+            g["lr"] = g["lr"] * factor
+            print("Reduce Learning Rate : ", epoch, g["lr"])
         return True
 
-    
-    
+
 class WarmupPolyLR(torch.optim.lr_scheduler._LRScheduler):
     def __init__(
         self,
@@ -63,7 +63,7 @@ class WarmupPolyLR(torch.optim.lr_scheduler._LRScheduler):
         warmup_method: str = "linear",
         last_epoch: int = -1,
         power: float = 0.9,
-        constant_ending: float = 0.
+        constant_ending: float = 0.0,
     ):
         self.max_iters = max_iters
         self.warmup_factor = warmup_factor
@@ -77,14 +77,13 @@ class WarmupPolyLR(torch.optim.lr_scheduler._LRScheduler):
         warmup_factor = _get_warmup_factor_at_iter(
             self.warmup_method, self.last_epoch, self.warmup_iters, self.warmup_factor
         )
-        if self.constant_ending > 0 and warmup_factor == 1.:
+        if self.constant_ending > 0 and warmup_factor == 1.0:
             # Constant ending lr.
-            if math.pow((1.0 - self.last_epoch / self.max_iters), self.power) < self.constant_ending:
-                return [
-                    base_lr
-                    * self.constant_ending
-                    for base_lr in self.base_lrs
-                ]
+            if (
+                math.pow((1.0 - self.last_epoch / self.max_iters), self.power)
+                < self.constant_ending
+            ):
+                return [base_lr * self.constant_ending for base_lr in self.base_lrs]
         return [
             base_lr
             * warmup_factor
@@ -96,7 +95,7 @@ class WarmupPolyLR(torch.optim.lr_scheduler._LRScheduler):
         # The new interface
         return self.get_lr()
 
-    
+
 class WarmupMultiStepLR(torch.optim.lr_scheduler._LRScheduler):
     def __init__(
         self,
@@ -110,7 +109,8 @@ class WarmupMultiStepLR(torch.optim.lr_scheduler._LRScheduler):
     ):
         if not list(milestones) == sorted(milestones):
             raise ValueError(
-                "Milestones should be a list of" " increasing integers. Got {}", milestones
+                "Milestones should be a list of" " increasing integers. Got {}",
+                milestones,
             )
         self.milestones = milestones
         self.gamma = gamma
@@ -124,7 +124,9 @@ class WarmupMultiStepLR(torch.optim.lr_scheduler._LRScheduler):
             self.warmup_method, self.last_epoch, self.warmup_iters, self.warmup_factor
         )
         return [
-            base_lr * warmup_factor * self.gamma ** bisect_right(self.milestones, self.last_epoch)
+            base_lr
+            * warmup_factor
+            * self.gamma ** bisect_right(self.milestones, self.last_epoch)
             for base_lr in self.base_lrs
         ]
 
@@ -132,7 +134,7 @@ class WarmupMultiStepLR(torch.optim.lr_scheduler._LRScheduler):
         # The new interface
         return self.get_lr()
 
-    
+
 def _get_warmup_factor_at_iter(
     method: str, iter: int, warmup_iters: int, warmup_factor: float
 ) -> float:

@@ -1,171 +1,232 @@
-import numpy as np
+import math
 import torch
+import numpy as np
+import matplotlib as plt
+from PIL import Image
+from utils.decode import crf_inference_label
+
 
 def colorize_offset(offset_map, offset_weight, seg_map=None, pred=True):
-
-    import matplotlib.colors
-    import math
 
     a = (np.arctan2(-offset_map[0], -offset_map[1]) / math.pi + 1) / 2
 
     r = np.sqrt(offset_map[0] ** 2 + offset_map[1] ** 2)
     s = r / (np.max(r) + 1e-5)
-    
+
     hsv_color = np.stack((a, s, np.ones_like(a)), axis=-1)
-    rgb_color = matplotlib.colors.hsv_to_rgb(hsv_color)
+    rgb_color = plt.colors.hsv_to_rgb(hsv_color)
     rgb_color = np.uint8(rgb_color * 255)
-    
+
     if seg_map is not None:
-        rgb_color[np.where(seg_map == 0)] = [0, 0, 0] # background
-    
+        rgb_color[np.where(seg_map == 0)] = [0, 0, 0]  # background
+
     if not pred:
-        rgb_color[np.where(offset_weight == 0)] = [255, 255, 255] # ignore
-    
+        rgb_color[np.where(offset_weight == 0)] = [255, 255, 255]  # ignore
+
     return rgb_color
 
 
 def voc_names():
     return [
-        "background", "aeroplane", "bicycle", "bird",
-        "boat", "bottle", "bus", "car", "cat", "chair",
-        "cow", "diningtable", "dog", "horse", "motorbike",
-        "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor",
+        "background",
+        "aeroplane",
+        "bicycle",
+        "bird",
+        "boat",
+        "bottle",
+        "bus",
+        "car",
+        "cat",
+        "chair",
+        "cow",
+        "diningtable",
+        "dog",
+        "horse",
+        "motorbike",
+        "person",
+        "pottedplant",
+        "sheep",
+        "sofa",
+        "train",
+        "tvmonitor",
     ]
 
 
 def get_palette():
     palette = []
     for i in range(256):
-        palette.extend((i,i,i))
-    palette[:3*21] = np.array([[0, 0, 0],
-                            [128, 0, 0],
-                            [0, 128, 0],
-                            [128, 128, 0],
-                            [0, 0, 128],
-                            [128, 0, 128],
-                            [0, 128, 128],
-                            [128, 128, 128],
-                            [64, 0, 0],
-                            [192, 0, 0],
-                            [64, 128, 0],
-                            [192, 128, 0],
-                            [64, 0, 128],
-                            [192, 0, 128],
-                            [64, 128, 128],
-                            [192, 128, 128],
-                            [0, 64, 0],
-                            [128, 64, 0],
-                            [0, 192, 0],
-                            [128, 192, 0],
-                            [0, 64, 128]], dtype='uint8').flatten()
-    
+        palette.extend((i, i, i))
+    palette[: 3 * 21] = np.array(
+        [
+            [0, 0, 0],
+            [128, 0, 0],
+            [0, 128, 0],
+            [128, 128, 0],
+            [0, 0, 128],
+            [128, 0, 128],
+            [0, 128, 128],
+            [128, 128, 128],
+            [64, 0, 0],
+            [192, 0, 0],
+            [64, 128, 0],
+            [192, 128, 0],
+            [64, 0, 128],
+            [192, 0, 128],
+            [64, 128, 128],
+            [192, 128, 128],
+            [0, 64, 0],
+            [128, 64, 0],
+            [0, 192, 0],
+            [128, 192, 0],
+            [0, 64, 128],
+        ],
+        dtype="uint8",
+    ).flatten()
+
     return palette
 
+
 def voc_colors():
-    colors = np.array([[0, 0, 0],
-                        [128, 0, 0],
-                        [0, 128, 0],
-                        [128, 128, 0],
-                        [0, 0, 128],
-                        [128, 0, 128],
-                        [0, 128, 128],
-                        [128, 128, 128],
-                        [64, 0, 0],
-                        [192, 0, 0],
-                        [64, 128, 0],
-                        [192, 128, 0],
-                        [64, 0, 128],
-                        [192, 0, 128],
-                        [64, 128, 128],
-                        [192, 128, 128],
-                        [0, 64, 0],
-                        [128, 64, 0],
-                        [0, 192, 0],
-                        [128, 192, 0],
-                        [0, 64, 128], 
-                       [255, 255, 255],
-                      [200, 200, 200]], dtype='uint8')
+    colors = np.array(
+        [
+            [0, 0, 0],
+            [128, 0, 0],
+            [0, 128, 0],
+            [128, 128, 0],
+            [0, 0, 128],
+            [128, 0, 128],
+            [0, 128, 128],
+            [128, 128, 128],
+            [64, 0, 0],
+            [192, 0, 0],
+            [64, 128, 0],
+            [192, 128, 0],
+            [64, 0, 128],
+            [192, 0, 128],
+            [64, 128, 128],
+            [192, 128, 128],
+            [0, 64, 0],
+            [128, 64, 0],
+            [0, 192, 0],
+            [128, 192, 0],
+            [0, 64, 128],
+            [255, 255, 255],
+            [200, 200, 200],
+        ],
+        dtype="uint8",
+    )
     return colors
 
 
 def cam_to_seg(CAM, sal_map, palette, alpha=0.2, ignore=255):
-    colors = voc_colors()
     C, H, W = CAM.shape
-    
-    CAM[CAM < alpha] = 0 # object cue
+
+    CAM[CAM < alpha] = 0  # object cue
 
     bg = np.zeros((1, H, W), dtype=np.float32)
     pred_map = np.concatenate([bg, CAM], axis=0)  # [21, H, W]
-    
-    pred_map[0, :, :] = (1. - sal_map) # backgroudn cue
-    
+
+    pred_map[0, :, :] = 1.0 - sal_map  # backgroudn cue
+
     # conflict pixels with multiple confidence values
     bg = np.array(pred_map > 0.99, dtype=np.uint8)
     bg = np.sum(bg, axis=0)
     pred_map = pred_map.argmax(0).astype(np.uint8)
     pred_map[bg > 2] = ignore
 
-    # pixels regarded as background but confidence saliency values 
-    bg = (sal_map == 1).astype(np.uint8) * (pred_map == 0).astype(np.uint8) # and operator
+    # pixels regarded as background but confidence saliency values
+    bg = (sal_map == 1).astype(np.uint8) * (pred_map == 0).astype(
+        np.uint8
+    )  # and operator
     pred_map[bg > 0] = ignore
-    
+
     pred_map = np.uint8(pred_map)
-    
+
     palette = get_palette()
     pred_map = Image.fromarray(pred_map)
     pred_map.putpalette(palette)
-                
+
     return pred_map
 
 
 def cam_with_crf(cam, img, keys, fg_thresh=0.1, bg_thresh=0.001):
-    cam = np.float32(cam) / 255.
+    cam = np.float32(cam) / 255.0
 
-    cam = cam[keys] # valid category selection
-    
-    valid_cat = np.pad(keys + 1, (1, 0), mode='constant') # valid category : [background, val_cat+1]
+    cam = cam[keys]  # valid category selection
 
-    fg_conf_cam = np.pad(cam, ((1, 0), (0, 0), (0, 0)), mode='constant', constant_values=fg_thresh) # [c+1, H, W]
+    valid_cat = np.pad(
+        keys + 1, (1, 0), mode="constant"
+    )  # valid category : [background, val_cat+1]
+
+    fg_conf_cam = np.pad(
+        cam, ((1, 0), (0, 0), (0, 0)), mode="constant", constant_values=fg_thresh
+    )  # [c+1, H, W]
     fg_conf_cam = np.argmax(fg_conf_cam, axis=0)
     pred = crf_inference_label(img, fg_conf_cam, n_labels=valid_cat.shape[0])
-    fg_conf = valid_cat[pred] # convert to whole index (0, 1, 2) -> (0 ~ 20)
+    fg_conf = valid_cat[pred]  # convert to whole index (0, 1, 2) -> (0 ~ 20)
 
-    bg_conf_cam = np.pad(cam, ((1, 0), (0, 0), (0, 0)), mode='constant', constant_values=bg_thresh) # [c+1, H, W]
+    bg_conf_cam = np.pad(
+        cam, ((1, 0), (0, 0), (0, 0)), mode="constant", constant_values=bg_thresh
+    )  # [c+1, H, W]
     bg_conf_cam = np.argmax(bg_conf_cam, axis=0)
     pred = crf_inference_label(img, bg_conf_cam, n_labels=valid_cat.shape[0])
-    bg_conf = valid_cat[pred] # convert to whole index (0, 1, 2) -> (0 ~ 20)
+    bg_conf = valid_cat[pred]  # convert to whole index (0, 1, 2) -> (0 ~ 20)
 
     conf = fg_conf.copy()
     conf[fg_conf == 0] = 21
-    conf[bg_conf + fg_conf == 0] = 0 # both zero
+    conf[bg_conf + fg_conf == 0] = 0  # both zero
 
+    colors = voc_colors()
     conf_color = colors[conf]
-    
+
     return conf, conf_color
 
 
 def heatmap_colorize(score_map, exclude_zero=True, normalize=True):
-    import matplotlib.colors
-    
-    VOC_color = np.array([(0, 0, 0), (128, 0, 0), (0, 128, 0), (128, 128, 0), (0, 0, 128), (128, 0, 128),
-                 (0, 128, 128), (128, 128, 128), (64, 0, 0), (192, 0, 0), (64, 128, 0), (192, 128, 0),
-                 (64, 0, 128), (192, 0, 128), (64, 128, 128), (192, 128, 128), (0, 64, 0), (128, 64, 0),
-                 (0, 192, 0), (128, 192, 0), (0, 64, 128), (255, 255, 255)], np.float32)
+
+    VOC_color = np.array(
+        [
+            (0, 0, 0),
+            (128, 0, 0),
+            (0, 128, 0),
+            (128, 128, 0),
+            (0, 0, 128),
+            (128, 0, 128),
+            (0, 128, 128),
+            (128, 128, 128),
+            (64, 0, 0),
+            (192, 0, 0),
+            (64, 128, 0),
+            (192, 128, 0),
+            (64, 0, 128),
+            (192, 0, 128),
+            (64, 128, 128),
+            (192, 128, 128),
+            (0, 64, 0),
+            (128, 64, 0),
+            (0, 192, 0),
+            (128, 192, 0),
+            (0, 64, 128),
+            (255, 255, 255),
+        ],
+        np.float32,
+    )
 
     if exclude_zero:
         VOC_color = VOC_color[1:]
 
-    test = VOC_color[np.argmax(score_map, axis=0)%22]
+    test = VOC_color[np.argmax(score_map, axis=0) % 22]
     test = np.expand_dims(np.max(score_map, axis=0), axis=-1) * test
     if normalize:
         test /= np.max(test) + 1e-5
 
     return test
 
+
 def decode_seg_map_sequence(label_masks):
     if label_masks.ndim == 2:
         label_masks = label_masks[None, :, :]
-    
+
     rgb_masks = []
     for label_mask in label_masks:
         rgb_mask = decode_segmap(label_mask)
@@ -184,7 +245,7 @@ def decode_segmap(label_mask, plot=False):
     Returns:
         (np.ndarray, optional): the resulting decoded color image.
     """
-    
+
     n_classes = 21
     label_colours = get_pascal_labels()
 
@@ -228,17 +289,36 @@ def get_pascal_labels():
     Returns:
         np.ndarray with dimensions (21, 3)
     """
-    return np.asarray([[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
-                       [0, 0, 128], [128, 0, 128], [0, 128, 128], [128, 128, 128],
-                       [64, 0, 0], [192, 0, 0], [64, 128, 0], [192, 128, 0],
-                       [64, 0, 128], [192, 0, 128], [64, 128, 128], [192, 128, 128],
-                       [0, 64, 0], [128, 64, 0], [0, 192, 0], [128, 192, 0],
-                       [0, 64, 128]])
+    return np.asarray(
+        [
+            [0, 0, 0],
+            [128, 0, 0],
+            [0, 128, 0],
+            [128, 128, 0],
+            [0, 0, 128],
+            [128, 0, 128],
+            [0, 128, 128],
+            [128, 128, 128],
+            [64, 0, 0],
+            [192, 0, 0],
+            [64, 128, 0],
+            [192, 128, 0],
+            [64, 0, 128],
+            [192, 0, 128],
+            [64, 128, 128],
+            [192, 128, 128],
+            [0, 64, 0],
+            [128, 64, 0],
+            [0, 192, 0],
+            [128, 192, 0],
+            [0, 64, 128],
+        ]
+    )
 
 
 def get_ins_colors():
     ins_colors = np.random.random((2000, 3))
-    ins_colors = np.uint8(ins_colors*255)
+    ins_colors = np.uint8(ins_colors * 255)
     ins_colors[0] = [0, 0, 0]
     ins_colors[1] = [192, 128, 0]
     ins_colors[2] = [64, 0, 128]
