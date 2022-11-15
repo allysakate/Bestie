@@ -26,6 +26,7 @@ from utils.LoadData import get_dataset
 from utils.my_optim import WarmupPolyLR
 from utils.loss import Weighted_L1_Loss, Weighted_MSELoss, DeepLabCE
 from utils.utils import AverageMeter, get_ins_map, get_ins_map_with_point
+from utils.common import initiate_logging
 
 from chainercv.datasets import VOCInstanceSegmentationDataset
 from chainercv.evaluations import eval_instance_segmentation_voc
@@ -166,14 +167,14 @@ def parse():
     return parser.parse_args()
 
 
-def print_func(string):
+def print_func(string, logger):
     if torch.distributed.get_rank() == 0:
-        print(string)
+        logger.info(string)
 
 
-def save_checkpoint(save_path, model):
+def save_checkpoint(save_path, model, logger):
     if torch.distributed.get_rank() == 0:
-        print("\nSaving state: %s\n" % save_path)
+        logger.info("\nSaving state: %s\n" % save_path)
         state = {
             "model": model.module.state_dict(),
         }
@@ -204,7 +205,7 @@ def train():
                 data_iter  # noqa F821
             )
         except Exception as e:
-            print_func("   [LOADER ERROR] " + str(e))
+            print_func("   [LOADER ERROR] " + str(e), logger)
 
             epoch += 1
             data_iter = iter(train_loader)
@@ -290,7 +291,7 @@ def train():
             avg_refine_offset_loss.synch(device)
 
             if args.local_rank == 0:
-                print(
+                logger.info(
                     "Progress: [{0}][{1}/{2}] ({3:.1f}%, {4:.1f} min) | "
                     "Time: {5:.1f} ms | "
                     "Left: {6:.1f} min | "
@@ -325,7 +326,7 @@ def train():
 
             if args.local_rank == 0 and val_score["map"] > best_AP:
                 best_AP = val_score["map"]
-                print(
+                logger.info(
                     "\n Best mAP50, iteration : %d, mAP50 : %.2f \n"
                     % (cur_iter, best_AP)
                 )
@@ -336,7 +337,7 @@ def train():
         end = time.time()
 
     if args.local_rank == 0:
-        print("\n training done")
+        logger.info("\n training done")
         save_path = os.path.join(args.save_folder, "last.pt")
         save_checkpoint(save_path, model)
 
@@ -344,7 +345,9 @@ def train():
 
     if args.local_rank == 0 and val_score["map"] > best_AP:
         best_AP = val_score["map"]
-        print("\n Best mAP50, iteration : %d, mAP50 : %.2f \n" % (cur_iter, best_AP))
+        logger.info(
+            "\n Best mAP50, iteration : %d, mAP50 : %.2f \n" % (cur_iter, best_AP)
+        )
 
         # model_file = os.path.join(args.save_folder, "best.pt")
         save_checkpoint(save_path, model)
@@ -410,7 +413,7 @@ def validate():
             iou_thresh=0.5,
         )
 
-        # print(ap_result)
+        # logger.info(ap_result)
         os.system(f"rm -rf {val_dir}")
 
     torch.distributed.barrier()
@@ -429,6 +432,11 @@ if __name__ == "__main__":
     random.seed(args.random_seed)
 
     torch.backends.cudnn.benchmark = True
+
+    # Initialize logger
+    save_dir = args.save_folder
+    log_name = "train_" + save_dir.split("/")[-1]
+    logger = initiate_logging(log_name)
 
     args.gpu = args.local_rank
     torch.cuda.set_device(args.gpu)
@@ -461,18 +469,19 @@ if __name__ == "__main__":
     # Optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
-            print_func("=> loading checkpoint '{}'".format(args.resume))
+            print_func("=> loading checkpoint '{}'".format(args.resume), logger)
             ckpt = torch.load(args.resume, map_location="cpu")["model"]
             # model.load_state_dict(new_dict, strict=True)
         else:
-            print_func("=> no checkpoint found at '{}'".format(args.resume))
+            print_func("=> no checkpoint found at '{}'".format(args.resume), logger)
 
     """ Get data loader """
     train_dataset = get_dataset(args, mode="train")
     valid_dataset = get_dataset(args, mode="val")
     print_func(
         "number of train set = %d | valid set = %d"
-        % (len(train_dataset), len(valid_dataset))
+        % (len(train_dataset), len(valid_dataset)),
+        logger,
     )
 
     n_gpus = torch.cuda.device_count()
@@ -516,7 +525,7 @@ if __name__ == "__main__":
     model = DDP(model, device_ids=[args.gpu])
 
     if args.val_freq != 0 and args.local_rank == 0:
-        print("...Preparing GT dataset for evaluation")
+        logger.info("...Preparing GT dataset for evaluation")
         ins_dataset = VOCInstanceSegmentationDataset(
             split="val", data_dir=args.root_dir
         )
@@ -530,8 +539,8 @@ if __name__ == "__main__":
         ]
 
     torch.distributed.barrier()
-    print_func("...Training Start \n")
-    print_func(args)
+    print_func("...Training Start \n", logger)
+    print_func(args, logger)
 
     # validate()
     train()

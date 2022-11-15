@@ -1,0 +1,53 @@
+main:
+  root_dir : /media/catchall/starplan/Dissertation/DatasetV1/COCO2017/val2017
+  checkpoint : /media/catchall/starplan/Dissertation/v100/Bestie/hrnet48test1/best.pt
+  dataset : coco # voc, coco
+  save_dir : /media/catchall/starplan/Dissertation/DataViz/coco/bestie
+  img_limit : 50
+  task : test # train, val, test
+
+
+model:
+  backbone : hrnet48 # [resnet50, resnet101, hrnet32, hrnet48]
+  num_classes : 20
+  gpu : 0
+  world_size : 1
+  local_rank : 0
+  kernel : 41
+  sigma : 6
+  bn_momentum : 0.01
+  gamma : 0.9
+  sup : cls
+
+
+train:
+  batch_size : 16
+  crop_size : 416
+  lr : 5e-5
+  weight_decay : 0
+  train_iter : 50000
+  warm_iter : 2000
+  train_epoch : 0
+  num_workers : 4
+  resume : False
+  print_freq : 200
+  save_freq : 10000
+  refine : True
+  refine_iter : 0
+  seg_weight : 1.0
+  center_weight : 200.0
+  offset_weight : 0.01
+
+val:
+  val_freq : 1000
+  val_thresh : 0.1
+  val_kernel : 41
+  val_flip : False
+  val_clean : False
+  val_ignore : False
+  random_seed : 3407
+  minimum_mask_size : 50
+  maximum_num_inst : 20
+  beta : 3.0
+  pseudo_thresh : 0.7
+  refine_thresh : 0.3

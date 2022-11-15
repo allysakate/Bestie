@@ -2,6 +2,8 @@ from .panoptic_deeplab import PanopticDeepLab
 from .hrnet import hrnet32, hrnet48
 from .resnet import resnet50, resnet101
 
+___all___ = ["PanopticDeepLab", "hrnet32", "hrnet48", "resnet50", "resnet101"]
+
 
 def model_factory(args):
 

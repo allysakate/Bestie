@@ -130,3 +130,12 @@ dmypy.json
 
 # Models
 *.pth
+*.pt
+logs/
+val_temp_dir/
+datasets/
+
+# Data
+*.xml
+*.jpg
+*.png
