@@ -1,6 +1,6 @@
 main:
-  root_dir : /media/catchall/starplan/Dissertation/DatasetV1/VOC2012
-  checkpoint : /media/catchall/starplan/Dissertation/v100/Bestie/hrnet48test1/best.pt
+  root_dir : /media/allysakate/OneTouch/1_PhD/Dissertation/Dataset/Public/BESTIE/VOCtrainval_11-May-2012/VOCdevkit/VOC2012
+  checkpoint :
   dataset : voc # voc, coco
   save_dir : checkpoints/hrnet48trainvoc
   img_limit : 5000

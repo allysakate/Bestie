@@ -221,7 +221,7 @@ def get_instance_map(out, target_size, device, model_cfg):
 
     if len(pred_label) == 0:
         pred_label.append(0)
-        pred_mask.append(np.zeros(target_size, dtype=np.bool))
+        pred_mask.append(np.zeros(target_size, dtype=bool))
         pred_score.append(0)
 
     pred_label = np.stack(pred_label, 0)

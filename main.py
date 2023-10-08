@@ -15,11 +15,10 @@ import random
 import pickle
 from tqdm import tqdm
 
-import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DataParallel  # , DistributedDataParallel as DDP
 
 from models import model_factory
 from utils.LoadData import get_dataset
@@ -162,23 +161,23 @@ def parse():
     parser.add_argument("--random_seed", type=int, default=1)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
-    parser.add_argument("--local_rank", type=int, default=int(os.environ["LOCAL_RANK"]))
+    parser.add_argument("--local_rank", type=int, default=0)
 
     return parser.parse_args()
 
 
 def print_func(string, logger):
-    if torch.distributed.get_rank() == 0:
-        logger.info(string)
+    # if torch.distributed.get_rank() == 0:
+    logger.info(string)
 
 
 def save_checkpoint(save_path, model, logger):
-    if torch.distributed.get_rank() == 0:
-        logger.info("\nSaving state: %s\n" % save_path)
-        state = {
-            "model": model.module.state_dict(),
-        }
-        torch.save(state, save_path)
+    # if torch.distributed.get_rank() == 0:
+    logger.info("\nSaving state: %s\n" % save_path)
+    state = {
+        "model": model.module.state_dict(),
+    }
+    torch.save(state, save_path)
 
 
 def train():
@@ -282,13 +281,13 @@ def train():
         avg_refine_offset_loss.update(offset_loss_2.item(), img.size(0))
 
         if cur_iter % args.print_freq == 0:
-            batch_time.synch(device)
-            avg_total_loss.synch(device)
-            avg_seg_loss.synch(device)
-            avg_pseudo_center_loss.synch(device)
-            avg_refine_center_loss.synch(device)
-            avg_pseudo_offset_loss.synch(device)
-            avg_refine_offset_loss.synch(device)
+            # batch_time.synch(device)
+            # avg_total_loss.synch(device)
+            # avg_seg_loss.synch(device)
+            # avg_pseudo_center_loss.synch(device)
+            # avg_refine_center_loss.synch(device)
+            # avg_pseudo_offset_loss.synch(device)
+            # avg_refine_offset_loss.synch(device)
 
             if args.local_rank == 0:
                 logger.info(
@@ -362,7 +361,7 @@ def validate():
     if args.local_rank == 0:
         os.makedirs(val_dir, exist_ok=True)
 
-    torch.distributed.barrier()
+    # torch.distributed.barrier()
     for img, cls_label, points, fname, tsize in tqdm(valid_loader):
         target_size = int(tsize[0]), int(tsize[1])
 
@@ -390,7 +389,7 @@ def validate():
                 f,
             )
 
-    torch.distributed.barrier()
+    # torch.distributed.barrier()
 
     ap_result = {"ap": None, "map": None}
 
@@ -416,7 +415,7 @@ def validate():
         # logger.info(ap_result)
         os.system(f"rm -rf {val_dir}")
 
-    torch.distributed.barrier()
+    # torch.distributed.barrier()
 
     model.train()
 
@@ -442,10 +441,10 @@ if __name__ == "__main__":
     torch.cuda.set_device(args.gpu)
 
     # Init dirstributed system
-    torch.distributed.init_process_group(
-        backend="nccl", rank=args.local_rank, world_size=torch.cuda.device_count()
-    )
-    args.world_size = torch.distributed.get_world_size()
+    # torch.distributed.init_process_group(
+    #     backend="nccl", rank=args.local_rank, world_size=torch.cuda.device_count()
+    # )
+    # args.world_size = torch.distributed.get_world_size()
     device = torch.device(f"cuda:{args.gpu}")
 
     if args.local_rank == 0:
@@ -521,9 +520,9 @@ if __name__ == "__main__":
         power=args.gamma,
     )
 
-    model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    model = DDP(model, device_ids=[args.gpu])
-
+    # model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    # model = DDP(model, device_ids=[args.gpu])
+    model = DataParallel(model, device_ids=[args.gpu])
     if args.val_freq != 0 and args.local_rank == 0:
         logger.info("...Preparing GT dataset for evaluation")
         ins_dataset = VOCInstanceSegmentationDataset(
@@ -538,7 +537,7 @@ if __name__ == "__main__":
             ins_dataset.get_example_by_keys(i, (2,))[0] for i in range(len(ins_dataset))
         ]
 
-    torch.distributed.barrier()
+    # torch.distributed.barrier()
     print_func("...Training Start \n", logger)
     print_func(args, logger)
 

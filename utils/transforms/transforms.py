@@ -130,7 +130,7 @@ class RandomScale(object):
         seg_map_dtype = seg_map.dtype
 
         image = cv2.resize(
-            image.astype(np.float),
+            image.astype(float),
             None,
             fx=f_scale,
             fy=f_scale,
@@ -138,7 +138,7 @@ class RandomScale(object):
         )
 
         seg_map = cv2.resize(
-            seg_map.astype(np.float),
+            seg_map.astype(float),
             None,
             fx=f_scale,
             fy=f_scale,
@@ -345,12 +345,12 @@ class Resize(object):
         seg_map_dtype = seg_map.dtype
 
         image = cv2.resize(
-            image.astype(np.float),
+            image.astype(float),
             (new_size[1], new_size[0]),
             interpolation=cv2.INTER_LINEAR,
         )
         seg_map = cv2.resize(
-            seg_map.astype(np.float),
+            seg_map.astype(float),
             (new_size[1], new_size[0]),
             interpolation=cv2.INTER_NEAREST,
         )

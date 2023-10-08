@@ -760,7 +760,7 @@ def get_ins_map(out, cls_label, target_size, device, args):
 
     if len(pred_label) == 0:
         pred_label.append(0)
-        pred_mask.append(np.zeros(target_size, dtype=np.bool))
+        pred_mask.append(np.zeros(target_size, dtype=bool))
         pred_score.append(0)
 
     pred_label = np.stack(pred_label, 0)
@@ -842,7 +842,7 @@ def get_ins_map_with_point(out, cls_label, points, target_size, device, args):
 
     if len(pred_label) == 0:
         pred_label.append(0)
-        pred_mask.append(np.zeros(target_size, dtype=np.bool))
+        pred_mask.append(np.zeros(target_size, dtype=bool))
         pred_score.append(0)
 
     pred_label = np.stack(pred_label, 0)
