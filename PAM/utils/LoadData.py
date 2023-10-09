@@ -144,3 +144,68 @@ class VOCDataset(Dataset):
             img_labels.append(labels)
 
         return img_name_list, img_labels
+
+
+class CocoDataset(Dataset):
+    """ Prepare data in coco-format dataset
+
+    Args:
+        datalist_file (str): text file image-class_ids data
+        root_dir (str): text file image[.jpg]-class_ids data
+        num_classes (int): number of categories
+        transform (object): image transform functions
+        mode (str): process mode: train, val
+
+    """
+    def __init__(
+        self,
+        datalist_file: str,
+        root_dir: str,
+        num_classes=80,
+        transform=None,
+        mode="train",
+    ):
+        self.datalist_file = datalist_file
+        self.root_dir = root_dir
+        self.num_classes = num_classes
+        self.transform = transform
+        self.mode = mode
+
+        self.image_list, self.label_list = self.read_labeled_image_list()
+
+    def __len__(self):
+        return len(self.image_list)
+
+    def __getitem__(self, idx):
+        img_name = self.image_list[idx]
+        image = Image.open(img_name).convert("RGB")
+
+        meta = {"img_name": img_name, "ori_size": image.size}
+
+        if self.transform is not None:
+            image = self.transform(image)
+
+        return image, self.label_list[idx], meta
+
+    def read_labeled_image_list(self):
+        img_dir = os.path.join(self.root_dir, f"image_{self.mode}")
+
+        with open(self.datalist_file, "r") as f:
+            lines = f.readlines()
+
+        img_name_list = []
+        img_labels = []
+
+        for line in lines:
+            fields = line.strip().split()
+            image = fields[0] + ".jpg"
+
+            labels = np.zeros((self.num_classes,), dtype=np.float32)
+            for i in range(len(fields) - 1):
+                index = int(fields[i + 1])
+                labels[index] = 1.0
+
+            img_name_list.append(os.path.join(img_dir, image))
+            img_labels.append(labels)
+
+        return img_name_list, img_labels

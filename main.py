@@ -525,9 +525,11 @@ if __name__ == "__main__":
     model = DataParallel(model, device_ids=[args.gpu])
     if args.val_freq != 0 and args.local_rank == 0:
         logger.info("...Preparing GT dataset for evaluation")
-        ins_dataset = VOCInstanceSegmentationDataset(
-            split="val", data_dir=args.root_dir
-        )
+        if args.dataset == "voc":
+            media_dir = args.root_dir
+        elif args.dataset == "coco":
+            media_dir = os.path.join(args.root_dir, "voc_val")
+        ins_dataset = VOCInstanceSegmentationDataset(split="val", data_dir=media_dir)
 
         ins_gt_ids = ins_dataset.ids
         ins_gt_masks = [
